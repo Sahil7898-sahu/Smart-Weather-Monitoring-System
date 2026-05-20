@@ -59,7 +59,9 @@ export default function Dashboard() {
     const fetchWeatherData = async () => {
       try {
         setIsLoading(true)
-        const data = await wifiLocationService.getCurrentLocationWeather();
+        // Default to Bhopal weather data
+        const bhopalCoords = { lat: 23.2599, lon: 77.4126 }; // Bhopal city center coordinates
+        const data = await wifiLocationService.getWeatherByCoordinates(bhopalCoords.lat, bhopalCoords.lon);
         setWeatherData(data);
         
         // Enhanced weather metrics with better colors
@@ -229,8 +231,8 @@ export default function Dashboard() {
                   <CloudSun className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl lg:text-5xl font-bold text-gray-900">Weather Dashboard</h1>
-                  <p className="text-lg text-gray-600 mt-1">Real-time weather monitoring</p>
+                  <h1 className="text-4xl lg:text-5xl font-bold text-gray-900">Bhopal Weather Dashboard</h1>
+                  <p className="text-lg text-gray-600 mt-1">Real-time weather monitoring for Bhopal, Madhya Pradesh</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-base text-gray-600">

@@ -15,8 +15,41 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
   const wifiLocationService = WifiLocationService.getInstance();
 
   useEffect(() => {
-    fetchLocationWeather();
+    // Default to Bhopal weather data
+    fetchBhopalWeather();
   }, []);
+
+  const fetchBhopalWeather = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🎯 Fetching Bhopal weather data...');
+      
+      const bhopalCoords = { lat: 23.2599, lon: 77.4126 }; // Bhopal city center coordinates
+      const data = await wifiLocationService.getWeatherByCoordinates(bhopalCoords.lat, bhopalCoords.lon);
+      
+      console.log('✅ Bhopal weather data received:', {
+        location: data.location.name,
+        region: data.location.region,
+        country: data.location.country,
+        temperature: data.current.temp_c,
+        condition: data.current.condition.text
+      });
+      
+      setWeatherData(data);
+      setLocationInfo({
+        lat: bhopalCoords.lat,
+        lon: bhopalCoords.lon,
+        method: 'Bhopal Default'
+      });
+    } catch (err) {
+      console.error('❌ Bhopal weather fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch Bhopal weather data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchLocationWeather = async (forceGPS = false) => {
     try {
@@ -78,9 +111,9 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
       <div className={`bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 ${className}`}>
         <div className="text-center">
           <Loader2 className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-spin" />
-          <h3 className="text-xl font-semibold text-white mb-2">Detecting Your Location</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">Loading Bhopal Weather</h3>
           <p className="text-primary-200 text-sm">
-            Using WiFi/Network to find your current location and weather...
+            Fetching real-time weather data for Bhopal, Madhya Pradesh...
           </p>
         </div>
       </div>
@@ -92,15 +125,15 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
       <div className={`bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 ${className}`}>
         <div className="text-center">
           <WifiOff className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Location Detection Failed</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">Bhopal Weather Failed</h3>
           <p className="text-primary-200 text-sm mb-4">
             {error}
           </p>
           <button
-            onClick={() => fetchLocationWeather()}
+            onClick={() => fetchBhopalWeather()}
             className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
           >
-            Retry Location Detection
+            Retry Bhopal Weather
           </button>
         </div>
       </div>
@@ -135,7 +168,7 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
         <div>
           <div className="flex items-center gap-2 mb-2">
             {getLocationIcon()}
-            <p className="text-primary-200 text-sm">Your Current Location</p>
+            <p className="text-primary-200 text-sm">Bhopal Weather</p>
           </div>
           <p className="text-white text-lg font-semibold">{location.name}, {location.region}</p>
           <p className="text-primary-200 text-sm">{location.country}</p>
@@ -143,15 +176,13 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
             <div className="text-primary-300 text-xs mt-1">
               <p>📍 {locationInfo.lat.toFixed(4)}°, {locationInfo.lon.toFixed(4)}°</p>
               <p className="text-xs text-primary-400 mt-1">
-                📡 Detection: {locationInfo.method}
+                📡 Data Source: {locationInfo.method}
               </p>
               <p className="text-xs text-primary-400 mt-1">
-                🎯 Expected: Neelbad, Bhopal (~23.2°N, 77.4°E)
+                �️ City: Bhopal, Madhya Pradesh
               </p>
               <p className="text-xs text-primary-400 mt-1">
-                {location.name.toLowerCase().includes('bhopal') || location.region.toLowerCase().includes('bhopal') 
-                  ? '✅ Bhopal area detected' 
-                  : '⚠️ Not in Bhopal area'}
+                🌾 Smart Weather for Farmers
               </p>
             </div>
           )}
@@ -222,34 +253,17 @@ const CurrentLocationWeather: React.FC<CurrentLocationWeatherProps> = ({ classNa
         </p>
         <div className="flex gap-2">
           <button
+            onClick={() => fetchBhopalWeather()}
+            className="text-primary-200 hover:text-white text-xs transition-colors"
+          >
+            Refresh Bhopal
+          </button>
+          <button
             onClick={() => fetchLocationWeather()}
             className="text-primary-200 hover:text-white text-xs transition-colors"
           >
-            Refresh
+            Use My Location
           </button>
-          {(location.name.toLowerCase().includes('bhopal') || location.region.toLowerCase().includes('bhopal')) === false && (
-            <button
-              onClick={async () => {
-                try {
-                  console.log('🎯 Manual override: Setting Neelbad, Bhopal location');
-                  const neelbadCoords = { lat: 23.2366, lon: 77.4345 }; // Neelbad, Bhopal coordinates
-                  const weatherData = await wifiLocationService.getWeatherByCoordinates(neelbadCoords.lat, neelbadCoords.lon);
-                  setWeatherData(weatherData);
-                  setLocationInfo({
-                    lat: neelbadCoords.lat,
-                    lon: neelbadCoords.lon,
-                    method: 'Manual Override'
-                  });
-                } catch (error) {
-                  console.error('❌ Manual override failed:', error);
-                  setError('Failed to set Neelbad, Bhopal location');
-                }
-              }}
-              className="text-primary-200 hover:text-white text-xs transition-colors"
-            >
-              Set Neelbad
-            </button>
-          )}
         </div>
       </div>
     </div>
