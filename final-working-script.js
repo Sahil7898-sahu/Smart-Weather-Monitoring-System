@@ -84,7 +84,13 @@ class FinalStudentSystem {
             localStorage.setItem('students', JSON.stringify(this.students));
             localStorage.setItem('deskCharge', this.deskCharge.toString());
         } catch (error) {
-            console.error('Error saving local data:', error);
+            if (error.name === 'QuotaExceededError') {
+                this.showMessage('❌ Storage quota exceeded. Please clear some data or use a different browser.', 'error');
+                console.error('Storage quota exceeded:', error);
+            } else {
+                console.error('Error saving local data:', error);
+                this.showMessage('⚠️ Failed to save data locally', 'warning');
+            }
         }
     }
 
@@ -109,18 +115,34 @@ class FinalStudentSystem {
             formData.append('charge', data.charge);
         }
 
-        const response = await fetch(this.scriptUrl, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === 'error') {
-            throw new Error(result.data);
+        try {
+            const response = await fetch(this.scriptUrl, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            // Validate response structure
+            if (!result || typeof result !== 'object') {
+                throw new Error('Invalid response format from server');
+            }
+            
+            if (result.status === 'error') {
+                throw new Error(result.data || 'Unknown server error');
+            }
+            
+            return result;
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                throw new Error('Invalid JSON response from server');
+            }
+            throw error;
         }
-        
-        return result;
     }
 
     registerStudent() {
@@ -173,6 +195,27 @@ class FinalStudentSystem {
         }
 
         return true;
+    }
+
+    compareDeskNumbers(a, b) {
+        // Extract letters and numbers from desk numbers
+        const extractParts = (deskNum) => {
+            const match = deskNum.match(/([A-Za-z]*)(\d*)/);
+            return {
+                letters: match[1] || '',
+                numbers: parseInt(match[2]) || 0
+            };
+        };
+        
+        const aParts = extractParts(a);
+        const bParts = extractParts(b);
+        
+        // First compare by letters
+        if (aParts.letters < bParts.letters) return -1;
+        if (aParts.letters > bParts.letters) return 1;
+        
+        // If letters are same, compare by numbers
+        return aParts.numbers - bParts.numbers;
     }
 
     isDeskTaken(deskNumber, excludeId = null) {
@@ -332,11 +375,9 @@ class FinalStudentSystem {
             noStudents.style.display = 'none';
 
             // Sort students by desk number
-            const sortedStudents = [...this.students].sort((a, b) => {
-                const aNum = parseInt(a.deskNumber.replace(/[^0-9]/g, '')) || 0;
-                const bNum = parseInt(b.deskNumber.replace(/[^0-9]/g, '')) || 0;
-                return aNum - bNum;
-            });
+            const sortedStudents = [...this.students].sort((a, b) => 
+                this.compareDeskNumbers(a.deskNumber, b.deskNumber)
+            );
 
             const tableHTML = `
                 <div class="table-header">
@@ -607,8 +648,37 @@ class FinalStudentSystem {
         }
     }
 
+    validatePaymentData(paymentData) {
+        if (!paymentData.amount || isNaN(paymentData.amount)) {
+            this.showMessage('Please enter a valid payment amount!', 'error');
+            return false;
+        }
+        
+        if (paymentData.amount <= 0) {
+            this.showMessage('Payment amount must be greater than 0!', 'error');
+            return false;
+        }
+        
+        if (!paymentData.date) {
+            this.showMessage('Please select a payment date!', 'error');
+            return false;
+        }
+        
+        if (!paymentData.method) {
+            this.showMessage('Please select a payment method!', 'error');
+            return false;
+        }
+        
+        return true;
+    }
+
     async addPayment(studentId, paymentData) {
         try {
+            // Validate payment data
+            if (!this.validatePaymentData(paymentData)) {
+                return;
+            }
+            
             // Find student
             const student = this.students.find(s => s.id === studentId);
             if (!student) {
@@ -667,11 +737,11 @@ class FinalStudentSystem {
                         <form id="admin-payment-form">
                             <div class="form-group">
                                 <label>Student Name</label>
-                                <input type="text" value="${student.name}" readonly>
+                                <input type="text" value="${this.escapeHtml(student.name)}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Desk Number</label>
-                                <input type="text" value="${student.deskNumber}" readonly>
+                                <input type="text" value="${this.escapeHtml(student.deskNumber)}" readonly>
                             </div>
                             <div class="form-group">
                                 <label for="admin-payment-amount">Amount (₹)</label>
@@ -868,11 +938,9 @@ class FinalStudentSystem {
             doc.text('Student Details (Sorted by Desk Number)', 20, 95);
             
             // Sort students by desk number for PDF
-            const sortedStudents = [...this.students].sort((a, b) => {
-                const aNum = parseInt(a.deskNumber.replace(/[^0-9]/g, '')) || 0;
-                const bNum = parseInt(b.deskNumber.replace(/[^0-9]/g, '')) || 0;
-                return aNum - bNum;
-            });
+            const sortedStudents = [...this.students].sort((a, b) => 
+                this.compareDeskNumbers(a.deskNumber, b.deskNumber)
+            );
             
             // Table headers
             const headers = ['Desk', 'Name', 'Contact', 'Email', 'Latest Payment', 'Reg. Date'];
